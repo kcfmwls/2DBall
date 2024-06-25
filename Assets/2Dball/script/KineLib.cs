@@ -9,6 +9,7 @@ public class KineLib
 
     /// <summary>
     /// lineStart != lineEnd
+    /// 多边形碰撞
     /// 几何
     /// </summary>
     public static float CalculateCollision(Vector2 ballPos, Vector2 ballVelocity, float ballRadius, Vector2 lineStart, Vector2 lineEnd, Vector2 lineNormal, out Vector2 resPos, out Vector2 resVel)
@@ -82,6 +83,7 @@ public class KineLib
 
     /// <summary>
     /// lineStart != lineEnd
+    /// 多边形碰撞
     /// 参数方程
     /// </summary>
     public static float CalculateCollision2(Vector2 ballPos, Vector2 ballVelocity, float ballRadius, Vector2 lineStart, Vector2 lineEnd, Vector2 lineNormal, out Vector2 resPos, out Vector2 resVel)
@@ -153,6 +155,44 @@ public class KineLib
         resPos = ballPos + ballVelocity * time;
         var newNormal = timeS < timeE ? (resPos - lineStart) : (resPos - lineEnd);
         resVel = ballVelocity - 2 * (Vector2.Dot(ballVelocity, newNormal)) / Vector2.Dot(newNormal, newNormal) * newNormal;
+        return time;
+    }
+
+    /// <summary>
+    /// 圆形碰撞
+    /// 参数方程
+    /// isTrigger : 为真代表小球会穿过这个圆，速度不变。为假会完全弹性碰撞
+    /// </summary>
+    public static float CalculateCollisionCircle(Vector2 ballPos, Vector2 ballVelocity, float ballRadius, Vector2 cirPos, float cirRadius, bool isTrigger, out Vector2 resPos, out Vector2 resVel)
+    {
+        resPos = ballPos;
+        resVel = ballVelocity;
+        float time = MAXMAP;
+        float dx = ballPos.x - cirPos.x;
+        float dy = ballPos.y - cirPos.y;
+        float sumRadius = ballRadius + cirRadius;
+        float detla = (ballVelocity.x * dx + ballVelocity.y * dy) * (ballVelocity.x * dx + ballVelocity.y * dy) - (dx * dx + dy * dy - sumRadius * sumRadius) * ballVelocity.sqrMagnitude;
+        if (detla > 0)
+        {
+            var mu = (ballVelocity.x * dx + ballVelocity.y * dy) / ballVelocity.sqrMagnitude;
+            var t1 = Mathf.Sqrt(detla / ballVelocity.sqrMagnitude / ballVelocity.sqrMagnitude) - mu;
+            var t2 = -Mathf.Sqrt(detla / ballVelocity.sqrMagnitude / ballVelocity.sqrMagnitude) - mu;
+            if (t1 > 0 && t2 > 0)
+                time = Mathf.Min(t1, t2);
+            else if (t1 > 0)
+                time = t1;
+            else if (t2 > 0)
+                time = t2;
+        }
+
+        if (time >= MAXMAP)
+            return -1;
+        resPos = ballPos + ballVelocity * time;
+        if (!isTrigger)
+        {
+            var newNormal = resPos - cirPos;
+            resVel = ballVelocity - 2 * (Vector2.Dot(ballVelocity, newNormal)) / Vector2.Dot(newNormal, newNormal) * newNormal;
+        }
         return time;
     }
 

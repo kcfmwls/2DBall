@@ -7,26 +7,43 @@ public class BallManager : MonoBehaviour
     public static BallManager Instance;
 
     [SerializeField]
-    private Transform ballTrs;
-    [SerializeField]
     private Transform ballVelocityTrs;
+    [SerializeField]
+    private GameObject ballTemplate;
+    [SerializeField]
+    private GameObject buffTemplate;
     [SerializeField]
     private List<GameObject> blockTemplate;
 
-    //地图边长
-    private int lofSide = 14;
     //每个格子尝试生成砖块概率
     private int probility = 25;
+    private int buffProbility = 10;
 
-    private Ball mainBall;
-    private List<BallPolygon> blockList = new List<BallPolygon>();
+    private float shootTime = 0;
+    private int shootIdx = 0;
+    private float intervalTime = 0.25f;
+    private Vector2 shootVel = Vector2.zero;
 
-    private float moveTime;
-    private float predictTime;
-    private Vector2 predictPos;
-    private Vector2 predictVel;
-    private bool over;
-    private int collCount;
+    private enum GameState
+    {
+        Motion,
+        Shoot,
+        Static,
+    }
+    private GameState state = GameState.Static;
+
+    //地图边长
+    public int LofSide = 14;
+
+    //本次循环内发射的小球数量，总是发射列表的前n个小球
+    private int shootBallCount = 0;
+    //本次循环内已经停止运动的小球数量
+    private int stopBallCount = 0;
+    public List<Ball> BallList = new List<Ball>();
+
+    //砖块唯一标识ID，每生成一个砖块递增，不重复
+    private int uniqueBlockID = 0;
+    public Dictionary<int, BallPolygon> PolygonMap = new Dictionary<int, BallPolygon>();
 
     void Awake()
     {
@@ -43,19 +60,8 @@ public class BallManager : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        Vector2 ballPos = new Vector2(ballTrs.position.x, ballTrs.position.y);
-        Vector2 ballVel = new Vector2(ballVelocityTrs.position.x - ballTrs.position.x, ballVelocityTrs.position.y - ballTrs.position.y);
-
-        mainBall = new Ball(ballTrs.localScale.x / 2, ballTrs);
-        mainBall.Position = ballPos;
-        mainBall.Velocity = ballVel;
-        moveTime = 0;
-        predictTime = -1;
-        over = false;
-        predictPos = ballPos;
-        predictVel = ballVel * 5;
-        collCount = 0;
-
+        AddNewBall();
+        AddNewBall();
         //debugMap();
         proceduralGeneration(14);
         proceduralGeneration(13);
@@ -67,41 +73,91 @@ public class BallManager : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        if (moveTime < predictTime)
-        {
-            moveTime += Time.deltaTime;
-            mainBall.Position += mainBall.Velocity * Time.deltaTime;
-            mainBall.MoveUpdate();
-        }
-        else if (over)
+        if (state == GameState.Static)
         {
             if (Input.GetMouseButtonDown(0))
             {
-                predictVel = new Vector2(ballVelocityTrs.position.x - ballTrs.position.x, ballVelocityTrs.position.y - ballTrs.position.y);
-                over = false;
+                shootBallCount = BallList.Count;
+                shootIdx = 0;
+                shootTime = intervalTime;
+                stopBallCount = 0;
+                shootVel = new Vector2(ballVelocityTrs.position.x - 7, ballVelocityTrs.position.y - 0.5f);
+                state = GameState.Shoot;
+                Debug.Log("发射" + BallList.Count + "个球");
             }
         }
-        else
+        else if (state == GameState.Shoot)
         {
-            mainBall.Position = predictPos;
-            mainBall.Velocity = predictVel;
-            mainBall.MoveUpdate();
-            moveTime = 0;
-            predictTime = mainBall.PredictCollision(blockList, lofSide, out predictPos, out predictVel, out over);
-            collCount++;
-            UnityEngine.Debug.Log(predictTime + " // " + collCount);
+            if (shootTime < intervalTime)
+            {
+                shootTime += Time.deltaTime;
+            }
+            else
+            {
+                BallList[shootIdx].ActiveBall(shootVel, null);
+                shootIdx++;
+                shootTime = 0;
+            }
+
+            for (int i = 0; i < shootIdx; i++)
+            {
+                BallList[i].KinematicsUpdate();
+            }
+
+            if (shootIdx == shootBallCount)
+                state = GameState.Motion;
+        }
+        else if (state == GameState.Motion)
+        {
+            for (int i = 0; i < shootBallCount; i++)
+            {
+                BallList[i].KinematicsUpdate();
+            }
+        }
+    }
+
+    //由小球撞到道具时触发。增加一个静止小球到起点
+    public void AddNewBall()
+    {
+        GameObject go = GameObject.Instantiate(ballTemplate);
+        go.transform.position = new Vector3(7, 0.5f, 4.3f);
+        BallList.Add(new Ball(go.transform.localScale.x / 2, go.transform, BallType.normalBall, 1));
+        Debug.Log("共有" + BallList.Count + "个球");
+    }
+
+    //由小球停止后触发
+    public void StopABall()
+    {
+        stopBallCount++;
+        if (stopBallCount == shootBallCount)
+        {
+            foreach (var id in PolygonMap.Keys)
+            {
+                PolygonMap[id].ShiftPosition(1);
+            }
+            proceduralGeneration(14);
+            state = GameState.Static;
         }
     }
 
     //high上边界
     private void proceduralGeneration(float high)
     {
-        for(int i = 0; i < lofSide; i++)
+        for(int i = 0; i < LofSide; i++)
         {
             int p = Random.Range(0, 100);
-            if (p < probility)
+            if (p >= probility && p < probility + buffProbility)
             {
-                p = Random.Range(0, (i == lofSide - 1 ? 5 : 7));
+                GameObject go = GameObject.Instantiate(buffTemplate);
+                go.transform.position = new Vector3(i + 0.5f, high - 0.5f, 4);
+                go.transform.localScale = new Vector3(0.4f, 0.4f, 0.4f);
+                uniqueBlockID++;
+                PolygonMap.Add(uniqueBlockID, new GainBallItem(uniqueBlockID, go));
+            }
+            else if (p < probility)
+            {
+                int hp = p;
+                p = Random.Range(0, (i == LofSide - 1 ? 5 : 7));
                 Vector2[] ori = {};
                 switch (p)
                 {
@@ -155,7 +211,8 @@ public class BallManager : MonoBehaviour
                 }
                 GameObject go = GameObject.Instantiate(blockTemplate[p]);
                 go.transform.position = new Vector3(i, high, 4);
-                blockList.Add(new BallPolygon(ori, go));
+                uniqueBlockID++;
+                PolygonMap.Add(uniqueBlockID, new NormalBlock(uniqueBlockID, go, ori, hp));
 
                 if (p == 5 || p == 6) i++;
             }
@@ -240,6 +297,7 @@ public class BallManager : MonoBehaviour
         }
         GameObject go = GameObject.Instantiate(blockTemplate[p]);
         go.transform.position = new Vector3(i, high, 4);
-        blockList.Add(new BallPolygon(ori, go));
+        uniqueBlockID++;
+        PolygonMap.Add(uniqueBlockID, new NormalBlock(uniqueBlockID, go, ori, 15));
     }
 }
