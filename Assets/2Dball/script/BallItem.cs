@@ -89,6 +89,7 @@ public class Ball
         newVelocity = Vector2.zero;
         over = false;
 
+        var lastID = -1;
         for (int i = 0; i < blockList.Count; i++)
         {
             if (lastCollisionIdx == i) continue;
@@ -100,9 +101,10 @@ public class Ball
                 time = t;
                 newPosition = resPos;
                 newVelocity = resVel;
-                lastCollisionIdx = i;
+                lastID = i;
             }
         }
+        lastCollisionIdx = lastID;
 
         var lTime = (Velocity.x < -Vector2.kEpsilon) ? (Radius - Position.x) / Velocity.x : KineLib.MAXMAP;
         if (lTime < time)
@@ -110,7 +112,6 @@ public class Ball
             time = lTime;
             newPosition = Position + time * Velocity;
             newVelocity = new Vector2(-Velocity.x, Velocity.y);
-            lastCollisionIdx = -1;
         }
         var uTime = (Velocity.y > Vector2.kEpsilon) ? (boundary - Radius - Position.y) / Velocity.y : KineLib.MAXMAP;
         if (uTime < time)
@@ -118,7 +119,6 @@ public class Ball
             time = uTime;
             newPosition = Position + time * Velocity;
             newVelocity = new Vector2(Velocity.x, -Velocity.y);
-            lastCollisionIdx = -1;
         }
         var rTime = (Velocity.x > Vector2.kEpsilon) ? (boundary - Radius - Position.x) / Velocity.x : KineLib.MAXMAP;
         if (rTime < time)
@@ -126,7 +126,6 @@ public class Ball
             time = rTime;
             newPosition = Position + time * Velocity;
             newVelocity = new Vector2(-Velocity.x, Velocity.y);
-            lastCollisionIdx = -1;
         }
         var bTime = (Velocity.y < -Vector2.kEpsilon) ? (Radius - Position.y) / Velocity.y : KineLib.MAXMAP;
         if (bTime < time)
@@ -134,7 +133,6 @@ public class Ball
             time = bTime;
             newPosition = Position + time * Velocity;
             newVelocity = Vector2.zero;
-            lastCollisionIdx = -1;
             over = true;
         }
 
