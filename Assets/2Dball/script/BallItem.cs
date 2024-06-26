@@ -42,6 +42,7 @@ public class NormalBlock : BallPolygon
     private Vector2[] normal;
 
     private int remainHp;
+    private TextMesh hpText;
 
     public NormalBlock(int uniqueId, GameObject go, Vector2[] origin, int remain) : base(uniqueId, go, PolygonType.normalBlock)
     {
@@ -58,6 +59,8 @@ public class NormalBlock : BallPolygon
         }
 
         remainHp = remain;
+        hpText = go.transform.Find("hp").GetComponent<TextMesh>();
+        hpText.text = remainHp.ToString();
     }
 
     public override void ShiftPosition(float move)
@@ -98,6 +101,7 @@ public class NormalBlock : BallPolygon
     public override void OnCollision(Ball ball)
     {
         remainHp -= ball.Damage;
+        hpText.text = remainHp.ToString();
         if (remainHp <= 0)
         {
             this.go.SetActive(false);
@@ -117,7 +121,13 @@ public class GainBallItem : BallPolygon
         itemRadius = go.transform.localScale.x / 2;
     }
 
-    public override void ShiftPosition(float move) { }
+    public override void ShiftPosition(float move)
+    {
+        itemPostion.y -= move;
+        var goPos = this.go.transform.position;
+        goPos.y -= move;
+        this.go.transform.position = goPos;
+    }
 
     public override float CheckCollision(Vector2 ballPosition, Vector2 ballVelocity, float ballRadius, out Vector2 newPosition, out Vector2 newVelocity)
     {
@@ -185,7 +195,7 @@ public class Ball
 
     public void ResetBall()
     {
-        mPosition = new Vector2(7, 0.5f);
+        mPosition = BallManager.Instance.ResetPos;
         mVelocity = Vector2.zero;
         moveTime = 0;
         predictTime = 0;
@@ -198,19 +208,19 @@ public class Ball
         Static = true;
     }
 
-    public void KinematicsUpdate()
+    public void KinematicsUpdate(float dt)
     {
         if (Static) return;
         if (moveTime < predictTime)
         {
-            moveTime += Time.deltaTime;
-            mPosition += mVelocity * Time.deltaTime;
+            moveTime += dt;
+            mPosition += mVelocity * dt;
             MoveUpdate();
         }
         else if (over)
         {
+            BallManager.Instance.StopABall(predictPos);
             ResetBall();
-            BallManager.Instance.StopABall();
         }
         else
         {
@@ -250,9 +260,10 @@ public class Ball
             return;
         }
 
+        var lastID = -1;
         foreach (var id in blockMap.Keys)
         {
-            if (lastCollisionId == id) continue;
+            //if (lastCollisionId == id) continue;
             var resPos = Vector2.zero;
             var resVel = Vector2.zero;
             var t = blockMap[id].CheckCollision(mPosition, mVelocity, mRadius, out resPos, out resVel);
@@ -261,9 +272,10 @@ public class Ball
                 predictTime = t;
                 predictPos = resPos;
                 predictVel = resVel;
-                lastCollisionId = id;
+                lastID = id;
             }
         }
+        lastCollisionId = lastID;
 
         var lTime = (mVelocity.x < -Vector2.kEpsilon) ? (mRadius - mPosition.x) / mVelocity.x : KineLib.MAXMAP;
         if (lTime < predictTime)
@@ -271,7 +283,6 @@ public class Ball
             predictTime = lTime;
             predictPos = mPosition + predictTime * mVelocity;
             predictVel = new Vector2(-mVelocity.x, mVelocity.y);
-            lastCollisionId = -1;
         }
         var uTime = (mVelocity.y > Vector2.kEpsilon) ? (boundary - mRadius - mPosition.y) / mVelocity.y : KineLib.MAXMAP;
         if (uTime < predictTime)
@@ -279,7 +290,6 @@ public class Ball
             predictTime = uTime;
             predictPos = mPosition + predictTime * mVelocity;
             predictVel = new Vector2(mVelocity.x, -mVelocity.y);
-            lastCollisionId = -1;
         }
         var rTime = (mVelocity.x > Vector2.kEpsilon) ? (boundary - mRadius - mPosition.x) / mVelocity.x : KineLib.MAXMAP;
         if (rTime < predictTime)
@@ -287,7 +297,6 @@ public class Ball
             predictTime = rTime;
             predictPos = mPosition + predictTime * mVelocity;
             predictVel = new Vector2(-mVelocity.x, mVelocity.y);
-            lastCollisionId = -1;
         }
         var bTime = (mVelocity.y < -Vector2.kEpsilon) ? (mRadius - mPosition.y) / mVelocity.y : KineLib.MAXMAP;
         if (bTime < predictTime)
@@ -295,7 +304,6 @@ public class Ball
             predictTime = bTime;
             predictPos = mPosition + predictTime * mVelocity;
             predictVel = Vector2.zero;
-            lastCollisionId = -1;
             over = true;
         }
     }

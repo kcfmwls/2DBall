@@ -27,9 +27,9 @@ public class KineLib
         Vector2 posToCS = collisionStart - ballPos;
         Vector2 posToCE = collisionEnd - ballPos;
         //速度方向在锐角夹角之内，其会撞到线段内
-        if (V2Cross(ballVelocity, posToCS) * V2Cross(ballVelocity, posToCE) <= 0)
+        if (v2Cross(ballVelocity, posToCS) * v2Cross(ballVelocity, posToCE) <= 0)
         {
-            time = (V2Cross(collisionStart, line) + V2Cross(line, ballPos)) / V2Cross(ballVelocity, line);
+            time = (v2Cross(collisionStart, line) + v2Cross(line, ballPos)) / v2Cross(ballVelocity, line);
             //速度在反向锐角夹角之内，且此时已不可能撞到线段端点
             if (time < 0)
                 return -1;
@@ -46,7 +46,7 @@ public class KineLib
         {
             Vector2 pathCS = Vector2.Dot(posToCS, ballVelocity) / ballVelocity.sqrMagnitude * ballVelocity;
             Vector2 near = posToCS - pathCS;
-            float difference = Mathf.Sqrt(ballRadius * ballRadius - near.sqrMagnitude);
+            float difference = mSqrt(ballRadius * ballRadius - near.sqrMagnitude);
             //如果采用这种判断，则非常边缘的擦边球会认为没有撞到砖块
             //if (difference > Vector2.kEpsilon)
             if (difference > 0)
@@ -60,7 +60,7 @@ public class KineLib
         {
             Vector2 pathCE = Vector2.Dot(posToCE, ballVelocity) / ballVelocity.sqrMagnitude * ballVelocity;
             Vector2 near = posToCE - pathCE;
-            float difference = Mathf.Sqrt(ballRadius * ballRadius - near.sqrMagnitude);
+            float difference = mSqrt(ballRadius * ballRadius - near.sqrMagnitude);
             //如果采用这种判断，则非常边缘的擦边球会认为没有撞到砖块
             //if (difference > Vector2.kEpsilon)
             if (difference > 0)
@@ -75,7 +75,8 @@ public class KineLib
 
         float minLength = Mathf.Min(LCS, LCE);
         time = minLength / ballVelocity.magnitude;
-        resPos = ballPos + ballVelocity * time;
+        //--------------------------------下方是幽灵碰撞，防止因浮点数精度问题导致的运动越界穿模
+        resPos = ballPos + ballVelocity * Mathf.Max(time - 0.01f, 0);
         var newNormal = LCS < LCE ? (resPos - lineStart) : (resPos - lineEnd);
         resVel = ballVelocity - 2 * (Vector2.Dot(ballVelocity, newNormal)) / Vector2.Dot(newNormal, newNormal) * newNormal;
         return time;
@@ -101,9 +102,9 @@ public class KineLib
         Vector2 posToCS = collisionStart - ballPos;
         Vector2 posToCE = collisionEnd - ballPos;
         //速度方向在锐角夹角之内，其会撞到线段内
-        if (V2Cross(ballVelocity, posToCS) * V2Cross(ballVelocity, posToCE) <= 0)
+        if (v2Cross(ballVelocity, posToCS) * v2Cross(ballVelocity, posToCE) <= 0)
         {
-            time = (V2Cross(collisionStart, line) + V2Cross(line, ballPos)) / V2Cross(ballVelocity, line);
+            time = (v2Cross(collisionStart, line) + v2Cross(line, ballPos)) / v2Cross(ballVelocity, line);
             //速度在反向锐角夹角之内，且此时已不可能撞到线段端点
             if (time < 0)
                 return -1;
@@ -121,8 +122,8 @@ public class KineLib
         if (detla > 0)
         {
             var mu = (ballVelocity.x * dx + ballVelocity.y * dy) / ballVelocity.sqrMagnitude;
-            var t1 = Mathf.Sqrt(detla / ballVelocity.sqrMagnitude / ballVelocity.sqrMagnitude) - mu;
-            var t2 = -Mathf.Sqrt(detla / ballVelocity.sqrMagnitude / ballVelocity.sqrMagnitude) - mu;
+            var t1 = mSqrt(detla / ballVelocity.sqrMagnitude / ballVelocity.sqrMagnitude) - mu;
+            var t2 = -mSqrt(detla / ballVelocity.sqrMagnitude / ballVelocity.sqrMagnitude) - mu;
             if (t1 > 0 && t2 > 0)
                 timeS = Mathf.Min(t1, t2);
             else if (t1 > 0)
@@ -138,8 +139,8 @@ public class KineLib
         if (detla > 0)
         {
             var mu = (ballVelocity.x * dx + ballVelocity.y * dy) / ballVelocity.sqrMagnitude;
-            var t1 = Mathf.Sqrt(detla / ballVelocity.sqrMagnitude / ballVelocity.sqrMagnitude) - mu;
-            var t2 = -Mathf.Sqrt(detla / ballVelocity.sqrMagnitude / ballVelocity.sqrMagnitude) - mu;
+            var t1 = mSqrt(detla / ballVelocity.sqrMagnitude / ballVelocity.sqrMagnitude) - mu;
+            var t2 = -mSqrt(detla / ballVelocity.sqrMagnitude / ballVelocity.sqrMagnitude) - mu;
             if (t1 > 0 && t2 > 0)
                 timeE = Mathf.Min(t1, t2);
             else if (t1 > 0)
@@ -152,7 +153,8 @@ public class KineLib
         if (time >= MAXMAP)
             return -1;
 
-        resPos = ballPos + ballVelocity * time;
+        //--------------------------------下方是幽灵碰撞，防止因浮点数精度问题导致的运动越界穿模
+        resPos = ballPos + ballVelocity * Mathf.Max(time - 0.01f, 0);
         var newNormal = timeS < timeE ? (resPos - lineStart) : (resPos - lineEnd);
         resVel = ballVelocity - 2 * (Vector2.Dot(ballVelocity, newNormal)) / Vector2.Dot(newNormal, newNormal) * newNormal;
         return time;
@@ -175,8 +177,8 @@ public class KineLib
         if (detla > 0)
         {
             var mu = (ballVelocity.x * dx + ballVelocity.y * dy) / ballVelocity.sqrMagnitude;
-            var t1 = Mathf.Sqrt(detla / ballVelocity.sqrMagnitude / ballVelocity.sqrMagnitude) - mu;
-            var t2 = -Mathf.Sqrt(detla / ballVelocity.sqrMagnitude / ballVelocity.sqrMagnitude) - mu;
+            var t1 = mSqrt(detla / ballVelocity.sqrMagnitude / ballVelocity.sqrMagnitude) - mu;
+            var t2 = -mSqrt(detla / ballVelocity.sqrMagnitude / ballVelocity.sqrMagnitude) - mu;
             if (t1 > 0 && t2 > 0)
                 time = Mathf.Min(t1, t2);
             else if (t1 > 0)
@@ -187,7 +189,8 @@ public class KineLib
 
         if (time >= MAXMAP)
             return -1;
-        resPos = ballPos + ballVelocity * time;
+        //--------------------------------下方是幽灵碰撞，防止因浮点数精度问题导致的运动越界穿模
+        resPos = ballPos + ballVelocity * Mathf.Max(time - 0.01f, 0);
         if (!isTrigger)
         {
             var newNormal = resPos - cirPos;
@@ -196,8 +199,22 @@ public class KineLib
         return time;
     }
 
-    private static float V2Cross(Vector2 lhs, Vector2 rhs)
+    private static float v2Cross(Vector2 lhs, Vector2 rhs)
     {
         return lhs.x * rhs.y - lhs.y * rhs.x;
+    }
+
+    private static float mSqrt(float x)
+    {
+        float xf = 0.5f * x;
+        int i;
+        unsafe
+        {
+            i = *(int*) & x;
+            i = 0x5f375a86 - (i >> 1);
+            x = *(float*) & i;
+        }
+        x = x * (1.5f - xf * x * x);
+        return 1 / x;
     }
 }
